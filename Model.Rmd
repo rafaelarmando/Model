@@ -161,7 +161,7 @@ To compute this distance, we first turn our model family into an R function. Thi
 ```{r}
 #this function return a model (y-value), and its arguments are a = line parameters, data = prediction dataset
 model1 <- function(a, data) {
-  a[1] + a[2] * data$x 
+  a[1] + a[2] * data$x
 }
 
 model1(c(7, 1.5), sim1)
