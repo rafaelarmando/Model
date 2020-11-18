@@ -1,0 +1,58 @@
+```{r}
+library(tidyverse)
+library(modelr)
+```
+
+```{r}
+models <- tibble(
+  a1 = runif(250, -20, 40),
+  a2 = runif(250, -5, 5)
+)
+
+models
+
+ggplot(data = sim1) + 
+  geom_abline(data = models, aes(intercept = a1, slope = a2), alpha = 1/4) + 
+  geom_point(aes(x, y))
+```
+
+```{r}
+# this function outputs a series of y-values when given a matrix containing y-intercepts and slopes, and a dataset
+model1 <- function(a, data) {
+  a[1] + a[2] * data$x
+}
+```
+
+```{r}
+measure_distance <- function(mod, data) {
+  diff <- data$y - model1(mod, data)
+  sqrt(mean(diff^2))
+}
+```
+
+```{r}
+sim1_dist <- function(a1, a2) {
+  measure_distance(c(a1, a2), sim1)
+}
+
+models <- models %>%
+  mutate(dist = purrr::map2_dbl(a1, a2, sim1_dist)) %>%
+  arrange(models, dist)
+```
+
+```{r}
+ggplot(sim1, aes(x, y)) + 
+  geom_point(size = 2) + 
+  geom_abline(data = filter(models, rank(dist) <= 10), aes(intercept = a1, slope = a2, color = -dist))
+```
+
+```{r}
+ggplot(models, aes(a1, a2)) + 
+  geom_point(data = filter(models, rank(dist) <= 10), size = 4, color = "red") + 
+  geom_point(aes(color = -dist))
+```
+
+
+
+
+
