@@ -129,8 +129,6 @@ models <- tibble(
   a2 = runif(250, -5, 5)
   )
 
-models
-
 ggplot(data = sim1) + 
   geom_abline(data = models, aes(intercept = a1, slope = a2), alpha = 1/4) + 
   geom_point(aes(x, y))
@@ -159,14 +157,12 @@ This distance is just the difference between the y value given by the model (the
 To compute this distance, we first turn our model family into an R function. This takes the model parameters and the data as inputs, and gives values predicted by the model as output:
 
 ```{r}
-#this function return a model (y-value), and its arguments are a = line parameters, data = prediction dataset
+# this function outputs a series of y-values when given a vector containing y-ints and slopes, and a dataset
 model1 <- function(a, data) {
   a[1] + a[2] * data$x
 }
 
 model1(c(7, 1.5), sim1)
-
-sim1
 ```
 
 Next, we need some way to compute an overall distance between the predicted and actual values. In other words, the plot above shows 30 distances: how do we collapse that into a single number?
@@ -174,7 +170,12 @@ Next, we need some way to compute an overall distance between the predicted and 
 One common way to do this in statistics to use the "root-mean-squared deviation". We compute the difference between actual and predicted, square them, average them, and the take the square root. This distance has lots of appealing mathematical properties, which we're not going to talk about here. You'll just have to take my word for it!
 
 ```{r}
+measure_distance <- function(mod, data) {
+  diff <- data$y - model1(mod, data) 
+  sqrt(mean(diff ^ 2))
+}
 
+measure_distance(c(7, 1.5), sim1)
 ```
 
 Now we can use purrr to compute the distance for all the models defined above. We need a helper function because our distance function expects the model as a numeric vector of length 2.
