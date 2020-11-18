@@ -157,7 +157,7 @@ This distance is just the difference between the y value given by the model (the
 To compute this distance, we first turn our model family into an R function. This takes the model parameters and the data as inputs, and gives values predicted by the model as output:
 
 ```{r}
-#this function returns a model (y-value), and its arguments are a = line parameters, data = prediction dataset
+# this function outputs a series of y-values when given a vector containing y-ints and slopes, and a dataset
 model1 <- function(a, data) {
   a[1] + a[2] * data$x
 }
@@ -181,13 +181,22 @@ measure_distance(c(7, 1.5), sim1)
 Now we can use purrr to compute the distance for all the models defined above. We need a helper function because our distance function expects the model as a numeric vector of length 2.
 
 ```{r}
+sim1_dist <- function(a1, a2) {
+  measure_distance(c(a1, a2), sim1)
+}
 
+models <- models %>%
+  mutate(dist = purrr::map2_dbl(a1, a2, sim1_dist))
+
+arrange(models, dist)
 ```
 
 Next, let's overlay the 10 best models on to the data. I've coloured the models by `-dist`: this is an easy way to make sure that the best models (i.e. the ones with the smallest distance) get the brighest colours.
 
 ```{r}
-
+ggplot(sim1, aes(x, y)) + 
+  geom_point(size = 2) + 
+  geom_abline(data = filter(models, rank(dist) <= 10), aes(intercept = a1, slope = a2, color = -dist))
 ```
 
 We can also think about these models as observations, and visualising with a scatterplot of `a1` vs  `a2`, again coloured by `-dist`. We can no longer directly see how the model compares to the data, but we can see many models at once. Again, I've highlighted the 10 best models, this time by drawing red circles underneath them.
