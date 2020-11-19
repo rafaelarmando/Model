@@ -173,25 +173,42 @@ Next, we need some way to compute an overall distance between the predicted and 
 One common way to do this in statistics to use the "root-mean-squared deviation". We compute the difference between actual and predicted, square them, average them, and the take the square root. This distance has lots of appealing mathematical properties, which we're not going to talk about here. You'll just have to take my word for it!
 
 ```{r}
+measure_distance <- function(mod, data) {
+  diff <- data$y - model1(mod, data) # diff = actual_y - predicted_y
+  sqrt(mean(diff ^ 2))
+}
 
+measure_distance(c(7, 1.5), sim1)
 ```
 
 Now we can use purrr to compute the distance for all the models defined above. We need a helper function because our distance function expects the model as a numeric vector of length 2.
 
 ```{r}
+sim1_dist <- function(a1, a2) {
+  measure_distance(c(a1, a2), sim1)
+}
 
+models <- models %>%
+  mutate(dist = purrr::map2_dbl(a1, a2, sim1_dist)) %>%
+  arrange(dist)
+
+models
 ```
 
 Next, let's overlay the 10 best models on to the data. I've coloured the models by `-dist`: this is an easy way to make sure that the best models (i.e. the ones with the smallest distance) get the brighest colours.
 
 ```{r}
-
+ggplot(sim1, aes(x, y)) + 
+  geom_point(size = 2) + 
+  geom_abline(aes(intercept = a1, slope = a2, color = -dist), data = filter(models, rank(dist) <= 10))
 ```
 
 We can also think about these models as observations, and visualising with a scatterplot of `a1` vs  `a2`, again coloured by `-dist`. We can no longer directly see how the model compares to the data, but we can see many models at once. Again, I've highlighted the 10 best models, this time by drawing red circles underneath them.
 
 ```{r}
-
+ggplot(models, aes(a1, a2)) + 
+  geom_point(data = filter(models, rank(dist) <= 10), size = 4, color = "red") + 
+  geom_point(aes(color = -dist))
 ```
 
 Instead of trying lots of random models, we could be more systematic and generate an evenly spaced grid of points (this is called a grid search). I picked the parameters of the grid roughly by looking at where the best models were in the plot above.
