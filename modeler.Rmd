@@ -49,7 +49,9 @@ sim1_dist <- function(a1, a2) {
 
 models <- models %>%
   mutate(dist = purrr::map2_dbl(a1, a2, sim1_dist)) %>%
-  arrange(models, dist)
+  arrange(dist)
+
+models
 ```
 
 ```{r}
