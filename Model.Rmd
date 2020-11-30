@@ -160,7 +160,9 @@ This distance is just the difference between the y value given by the model (the
 To compute this distance, we first turn our model family into an R function. This takes the model parameters and the data as inputs, and gives values predicted by the model as output:
 
 ```{r}
-# this function outputs a series of y-values when given a vector containing y-ints and slopes, and a dataset
+#this function outputs predicted y-values 
+#a = vector containing model (y-intercept and slope)
+#data = original dataset
 model1 <- function(a, data) {
   a[1] + a[2] * data$x
 }
@@ -173,6 +175,9 @@ Next, we need some way to compute an overall distance between the predicted and 
 One common way to do this in statistics to use the "root-mean-squared deviation". We compute the difference between actual and predicted, square them, average them, and the take the square root. This distance has lots of appealing mathematical properties, which we're not going to talk about here. You'll just have to take my word for it!
 
 ```{r}
+#this function outputs the RMSD. 
+#mod = model (y-intercept and slope)
+#data = original dataset
 measure_distance <- function(mod, data) {
   diff <- data$y - model1(mod, data) # diff = actual_y - predicted_y
   sqrt(mean(diff ^ 2))
@@ -184,10 +189,16 @@ measure_distance(c(7, 1.5), sim1)
 Now we can use purrr to compute the distance for all the models defined above. We need a helper function because our distance function expects the model as a numeric vector of length 2.
 
 ```{r}
+#this is the function to be called by purrr::map2_dbl
+#calls measure_distance, which in turn calls model1
+#returns a distance.
+#a1 = y-intercept
+#a2 = slope
 sim1_dist <- function(a1, a2) {
   measure_distance(c(a1, a2), sim1)
 }
 
+#Here we use purrr::map2_dbl to call the function sim1_dist for every a1, a2 pair in our dataset
 models <- models %>%
   mutate(dist = purrr::map2_dbl(a1, a2, sim1_dist)) %>%
   arrange(dist)
@@ -214,6 +225,7 @@ ggplot(models, aes(a1, a2)) +
 Instead of trying lots of random models, we could be more systematic and generate an evenly spaced grid of points (this is called a grid search). I picked the parameters of the grid roughly by looking at where the best models were in the plot above.
 
 ```{r}
+#perform grid search
 grid <- expand.grid(
   a1 = seq(-5, 20, length = 25),
   a2 = seq(1, 3, length = 25)
