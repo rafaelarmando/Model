@@ -126,8 +126,8 @@ You can see a strong pattern in the data. Let's use a model to capture that patt
 
 ```{r}
 models <- tibble(
-  a1 = runif(250, -20, 40),
-  a2 = runif(250, -5, 5)
+  a1 = runif(250, -20, 40), #y-intercept
+  a2 = runif(250, -5, 5) #slope
 )
 
 models
@@ -201,7 +201,7 @@ sim1_dist <- function(a1, a2) {
 #Here we use purrr::map2_dbl to call the function sim1_dist for every a1, a2 pair in our dataset
 models <- models %>%
   mutate(dist = purrr::map2_dbl(a1, a2, sim1_dist)) %>%
-  arrange(dist)
+  arrange(dist) 
 
 models
 ```
@@ -249,7 +249,7 @@ ggplot(sim1, aes(x, y)) +
 You could imagine iteratively making the grid finer and finer until you narrowed in on the best model. But there's a better way to tackle that problem: a numerical minimisation tool called Newton-Raphson search. The intuition of Newton-Raphson is pretty simple: you pick a starting point and look around for the steepest slope. You then ski down that slope a little way, and then repeat again and again, until you can't go any lower. In R, we can do that with `optim()`:
 
 ```{r}
-best <- optim(c(4, 2.1), measure_distance, data = sim1)
+best <- optim(c(0, 0), measure_distance, data = sim1)
 
 best
 ```
