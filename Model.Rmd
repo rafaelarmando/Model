@@ -119,8 +119,7 @@ Lets take a look at the simulated dataset `sim1`, included with the modelr packa
 ```{r}
 sim1
 
-ggplot(sim1, aes(x,y)) + 
-  geom_point()
+ggplot(sim1) + geom_point(aes(x, y))
 ```
 
 You can see a strong pattern in the data. Let's use a model to capture that pattern and make it explicit. It's our job to supply the basic form of the model. In this case, the relationship looks linear, i.e. `y = a_0 + a_1 * x`.  Let's start by getting a feel for what models from that family look like by randomly generating a few and overlaying them on the data. For this simple case, we can use `geom_abline()` which takes a slope and intercept as parameters. Later on we'll learn more general techniques that work with any model.
@@ -133,9 +132,9 @@ models <- tibble(
 
 models
 
-ggplot(data = sim1) + 
-  geom_abline(data = models, aes(intercept = a1, slope = a2), alpha = 1/4) + 
-  geom_point(aes(x, y))
+ggplot(sim1) + 
+  geom_point(aes(x, y)) + 
+  geom_abline(data = models, aes(intercept = a1, slope = a2), alpha = 1/4)
 ```
 
 There are 250 models on this plot, but a lot are really bad! We need to find the good models by making precise our intuition that a good model is "close" to the data. We need a way to quantify the distance between the data and a model. Then we can fit the model by finding the value of `a_0` and `a_1` that generate the model with the smallest distance from this data.
@@ -161,7 +160,9 @@ This distance is just the difference between the y value given by the model (the
 To compute this distance, we first turn our model family into an R function. This takes the model parameters and the data as inputs, and gives values predicted by the model as output:
 
 ```{r}
-# this function outputs a series of y-values when given a matrix containing y-intercepts and slopes, and a dataset
+#this function outputs predicted y-values 
+#a = vector containing model (y-intercept and slope)
+#data = original dataset
 model1 <- function(a, data) {
   a[1] + a[2] * data$x
 }
@@ -174,9 +175,12 @@ Next, we need some way to compute an overall distance between the predicted and 
 One common way to do this in statistics to use the "root-mean-squared deviation". We compute the difference between actual and predicted, square them, average them, and the take the square root. This distance has lots of appealing mathematical properties, which we're not going to talk about here. You'll just have to take my word for it!
 
 ```{r}
+#this function outputs the RMSD. 
+#mod = model (y-intercept and slope)
+#data = original dataset
 measure_distance <- function(mod, data) {
-  diff <- data$y - model1(mod, data)
-  sqrt(mean(diff^2))
+  diff <- data$y - model1(mod, data) # diff = actual_y - predicted_y
+  sqrt(mean(diff ^ 2))
 }
 
 measure_distance(c(7, 1.5), sim1)
@@ -185,16 +189,21 @@ measure_distance(c(7, 1.5), sim1)
 Now we can use purrr to compute the distance for all the models defined above. We need a helper function because our distance function expects the model as a numeric vector of length 2.
 
 ```{r}
+#this is the function to be called by purrr::map2_dbl
+#calls measure_distance, which in turn calls model1
+#returns a distance.
+#a1 = y-intercept
+#a2 = slope
 sim1_dist <- function(a1, a2) {
   measure_distance(c(a1, a2), sim1)
 }
 
+#Here we use purrr::map2_dbl to call the function sim1_dist for every a1, a2 pair in our dataset
 models <- models %>%
-  mutate(dist = purrr::map2_dbl(a1, a2, sim1_dist))
+  mutate(dist = purrr::map2_dbl(a1, a2, sim1_dist)) %>%
+  arrange(dist)
 
 models
-
-arrange(models, dist)
 ```
 
 Next, let's overlay the 10 best models on to the data. I've coloured the models by `-dist`: this is an easy way to make sure that the best models (i.e. the ones with the smallest distance) get the brighest colours.
@@ -202,7 +211,7 @@ Next, let's overlay the 10 best models on to the data. I've coloured the models 
 ```{r}
 ggplot(sim1, aes(x, y)) + 
   geom_point(size = 2) + 
-  geom_abline(data = filter(models, rank(dist) <= 10), aes(intercept = a1, slope = a2, color = -dist))
+  geom_abline(aes(intercept = a1, slope = a2, color = -dist), data = filter(models, rank(dist) <= 10))
 ```
 
 We can also think about these models as observations, and visualising with a scatterplot of `a1` vs  `a2`, again coloured by `-dist`. We can no longer directly see how the model compares to the data, but we can see many models at once. Again, I've highlighted the 10 best models, this time by drawing red circles underneath them.
@@ -216,6 +225,7 @@ ggplot(models, aes(a1, a2)) +
 Instead of trying lots of random models, we could be more systematic and generate an evenly spaced grid of points (this is called a grid search). I picked the parameters of the grid roughly by looking at where the best models were in the plot above.
 
 ```{r}
+#perform grid search
 grid <- expand.grid(
   a1 = seq(-5, 20, length = 25),
   a2 = seq(1, 3, length = 25)
@@ -239,7 +249,7 @@ ggplot(sim1, aes(x, y)) +
 You could imagine iteratively making the grid finer and finer until you narrowed in on the best model. But there's a better way to tackle that problem: a numerical minimisation tool called Newton-Raphson search. The intuition of Newton-Raphson is pretty simple: you pick a starting point and look around for the steepest slope. You then ski down that slope a little way, and then repeat again and again, until you can't go any lower. In R, we can do that with `optim()`:
 
 ```{r}
-best <- optim(c(0,0), measure_distance, data = sim1)
+best <- optim(c(4, 2.1), measure_distance, data = sim1)
 
 best
 ```
@@ -249,7 +259,8 @@ Don't worry too much about the details of how `optim()` works. It's the intuitio
 There's one more approach that we can use for this model, because it's a special case of a broader family: linear models. A linear model has the general form `y = a_1 + a_2 * x_1 + a_3 * x_2 + ... + a_n * x_(n - 1)`. So this simple model is equivalent to a general linear model where n is 2 and `x_1` is `x`. R has a tool specifically designed for fitting linear models called `lm()`. `lm()` has a special way to specify the model family: formulas. Formulas look like `y ~ x`, which `lm()` will translate to a function like `y = a_1 + a_2 * x`. We can fit the model and look at the output:
 
 ```{r}
-
+sim1_mod <- lm(y ~ x, data = sim1)
+coef(sim1_mod)
 ```
 
 These are exactly the same values we got with `optim()`! Behind the scenes `lm()` doesn't use `optim()` but instead takes advantage of the mathematical structure of linear models. Using some connections between geometry, calculus, and linear algebra, `lm()` actually finds the closest model in a single step, using a sophisticated algorithm. This approach is both faster, and guarantees that there is a global minimum.
@@ -303,7 +314,9 @@ It's also useful to see what the model doesn't capture, the so-called residuals 
 To visualise the predictions from a model, we start by generating an evenly spaced grid of values that covers the region where our data lies. The easiest way to do that is to use `modelr::data_grid()`. Its first argument is a data frame, and for each subsequent argument it finds the unique variables and then generates all combinations:
 
 ```{r}
-
+grid <- sim1 %>%
+  data_grid(x)
+grid
 ```
 
 (This will get more interesting when we start to add more variables to our model.)
@@ -311,7 +324,9 @@ To visualise the predictions from a model, we start by generating an evenly spac
 Next we add predictions. We'll use `modelr::add_predictions()` which takes a data frame and a model. It adds the predictions from the model to a new column in the data frame:
 
 ```{r}
-
+grid <- grid %>%
+  add_predictions(sim1_mod)
+grid
 ```
 
 (You can also use this function to add predictions to your original dataset.)
@@ -319,7 +334,9 @@ Next we add predictions. We'll use `modelr::add_predictions()` which takes a dat
 Next, we plot the predictions. You might wonder about all this extra work compared to just using `geom_abline()`. But the advantage of this approach is that it will work with _any_ model in R, from the simplest to the most complex. You're only limited by your visualisation skills. For more ideas about how to visualise more complex model types, you might try <http://vita.had.co.nz/papers/model-vis.html>.
 
 ```{r}
-
+ggplot(sim1, aes(x)) + 
+  geom_point(aes(y = y)) + 
+  geom_line(aes(y = pred), data = grid, color = "red", size = 1)
 ```
 
 ### Residuals
